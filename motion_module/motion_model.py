@@ -421,12 +421,16 @@ class CTRA(ABC_MODEL):
         assert state.shape == (10, 1), "state vector number in CTRA must equal to 10"
         
         dt = self.dt
+        # 获取航迹详细的各个属性
         x, y, z, w, l, h, v, a, theta, omega = state.T.tolist()[0]
         yaw_sin, yaw_cos = np.sin(theta), np.cos(theta)
+        
+        # 速度和角度预测
         next_v, next_ry = v + a * dt, theta + omega * dt
         
         # corner case(tiny yaw rate), prevent divide-by-zero overflow
         if abs(omega) < 0.001:
+            # 当角速度比较小的时候，简化计算
             displacement = v * dt + a * dt ** 2 / 2
             predict_state = [x + displacement * yaw_cos,
                              y + displacement * yaw_sin,
@@ -484,7 +488,9 @@ class CTRA(ABC_MODEL):
         yaw_sin, yaw_cos = np.sin(theta), np.cos(theta)
         
         # corner case, tiny turn rate
+        # 获取状态转移矩阵F（雅可比矩阵）
         if abs(omega) < 0.001:
+            # 简化计算
             displacement = v * dt + a * dt ** 2 / 2
             F = np.mat([[1, 0, 0, 0, 0, 0,  dt*yaw_cos,   dt**2*yaw_cos/2,        -displacement*yaw_sin,  0],
                         [0, 1, 0, 0, 0, 0,  dt*yaw_sin,   dt**2*yaw_sin/2,         displacement*yaw_cos,  0],
@@ -497,6 +503,7 @@ class CTRA(ABC_MODEL):
                         [0, 0, 0, 0, 0, 0,           0,                 0,                            1, dt],
                         [0, 0, 0, 0, 0, 0,           0,                 0,                            0,  1]])
         else:
+            # 标准CTRA的雅可比矩阵F
             ry_rate_inv, ry_rate_inv_square, ry_rate_inv_cube = 1 / omega, 1 / (omega * omega), 1 / (omega * omega * omega)
             next_v, next_ry = v + a * dt, theta + omega * dt
             next_yaw_sin, next_yaw_cos = np.sin(next_ry), np.cos(next_ry)

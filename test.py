@@ -31,12 +31,14 @@ def main(result_path, token, process, nusc_loader):
         }
     }
     # tracking and output file
-    nusc_tracker = Tracker(config=nusc_loader.config)
+    nusc_tracker = Tracker(config=nusc_loader.config) # 定义滤波器
     for frame_data in tqdm(nusc_loader, desc='Running', total=len(nusc_loader) // process, position=token):
         if process > 1 and frame_data['seq_id'] % process != token:
             continue
         sample_token = frame_data['sample_token']
+        
         # track each sequence
+        # 跟踪函数入口
         nusc_tracker.tracking(frame_data)
         """
         only for debug

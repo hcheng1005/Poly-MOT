@@ -3,6 +3,11 @@ Count-based Trajectory Lifecycle Management Module.
 Trajectory state(tentative/active/death) transition and tracking score punish
 """
 
+'''
+航迹生命周期管理:
+采用的是简单MN逻辑
+'''
+
 class LifeManagement:
     def __init__(self, timestamp: int, config: dict, class_label: int):
         self.cfg = config['life_cycle']

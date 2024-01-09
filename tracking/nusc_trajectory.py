@@ -15,6 +15,7 @@ from motion_module.nusc_object import FrameObject
 from motion_module.kalman_filter import LinearKalmanFilter, ExtendKalmanFilter
 
 
+# 航迹实例
 class Trajectory:
     def __init__(self, timestamp: int, config: dict, track_id: int, det_infos: dict):
         # init basic infos
@@ -24,21 +25,36 @@ class Trajectory:
         self.life_management = LifeManagement(timestamp, config, self.class_label)
         # manage tracklet's score, predict/update/punish trackelet
         self.score_management = ScoreManagement(timestamp, config, self.class_label, det_infos)
+        
         # manage for tracklet's motion/geometric infos
+        # 不同class_label使用不同的卡尔曼滤波器
         KF_type = self.cfg['motion_model']['filter'][self.class_label]
         assert KF_type in ['LinearKalmanFilter', 'ExtendKalmanFilter'], "must use specific kalman filter"
+
+        # 各类滤波器初始化
         self.motion_management = globals()[KF_type](timestamp, config, track_id, det_infos)
     
+
+    '''
+    航迹状态预测
+    '''
     def state_predict(self, timestamp: int) -> None:
         """
         predict trajectory's state
         :param timestamp: current frame id
         """
         self.timestamp = timestamp
-        self.life_management.predict(timestamp)
+        self.life_management.predict(timestamp) 
+        
+        # 卡尔曼状态预测
         self.motion_management.predict(timestamp)
+        
+        # score预测
         self.score_management.predict(timestamp, self.motion_management[timestamp])
     
+    '''
+    航迹状态更新
+    '''
     def state_update(self, timestamp: int, det: dict = None) -> None:
         """
         update trajectory's state

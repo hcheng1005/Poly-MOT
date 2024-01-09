@@ -166,6 +166,9 @@ class LinearKalmanFilter(KalmanFilter):
         self.addFrameObject(self.timestamp, tra_infos, 'predict')
         self.addFrameObject(self.timestamp, tra_infos, 'update')
     
+    '''
+    X状态预测
+    '''
     def predict(self, timestamp: int) -> None:
         # predict state and errorcov
         self.state = self.F * self.state
@@ -180,6 +183,9 @@ class LinearKalmanFilter(KalmanFilter):
         }
         self.addFrameObject(timestamp, tra_infos, 'predict')
         
+    '''
+    X状态更新
+    '''
     def update(self, timestamp: int, det: dict = None) -> None:
         # corner case, no det for updating
         if det is None: return

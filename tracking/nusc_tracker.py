@@ -54,6 +54,7 @@ class Tracker:
         self.det_infos, self.frame_id, self.seq_id = data_info, data_info['frame_id'], data_info['seq_id']
 
         # step1. predict all valid trajectories
+        # 首先进行航迹预测
         self.tras_predict()
 
         # step2. if there is no dets, we will punish all valid trajectories
@@ -63,6 +64,7 @@ class Tracker:
             return
 
         # step3. associate current frame detections with existing trajectories
+        # 关联模块，默认使用Hungarian分配
         tracking_ids = self.data_association()
 
         # step4. use observations(detection) to update the corresponding trajectories
@@ -111,6 +113,7 @@ class Tracker:
             if self.is_debug: assert tra_id not in self.dead_tras
 
             # predict each valid tracklet state
+            # 航迹预测，包括航迹状态x预测、航迹管理以及score预测
             tra.state_predict(timestamp=self.frame_id)
             pred_object = tra[self.frame_id]
             
@@ -123,6 +126,7 @@ class Tracker:
         if self.is_debug:
             self.valid_tras = self.merge_valid_tras()
             assert len(all_valid_ids) == len(self.valid_tras)
+            
         self.tra_infos = {
             'np_tras': np.array(pred_infos),  # info dim: 17, add 'tracking_id', 'seq_id', 'frame_id'
             'np_tras_bottom_corners': np.array(pred_bms),
@@ -191,9 +195,11 @@ class Tracker:
             if tra_id in self.valid_tras:
                 # update exist trajectory
                 tra = self.valid_tras[tra_id]
+                # 航迹更新
                 tra.state_update(timestamp=self.frame_id, det=dict_det)
             else:
                 # init new trajectory
+                # 新生航迹
                 tra = Trajectory(timestamp=self.frame_id,
                                  config=self.cfg,
                                  track_id=tra_id,
@@ -248,10 +254,17 @@ class Tracker:
             ids = np.arange(self.id_seed, self.id_seed + self.det_infos['det_num'], dtype=int)
             self.id_seed += self.det_infos['det_num']
         else:
+            # 构造代价矩阵并分配
             cost_matrices = self.compute_cost()
+            
+            # 执行分配算法，默认使用Hungarian
             ids = self.matching_cost(cost_matrices)
         return ids
 
+    
+    ''' compute_cost
+        构造代价矩阵
+    '''
     def compute_cost(self) -> dict:
         """
         Construct the cost matrix between the trajectory and the detection
@@ -259,15 +272,20 @@ class Tracker:
         one-stage: np.array, [cls_num, det_num, tra_num], two-stage: np.array, [det_num, tra_num]
         """
         assert self.tra_infos is not None and self.tra_infos['tra_num'] is not None
+        # 分别获取检测个数和当前航迹个数
         det_num, tra_num = self.det_infos['det_num'], self.tra_infos['tra_num']
+        
+        # 分别获取每个检测label和航迹label
         det_labels, tra_labels = self.det_infos['np_dets'][:, -1], self.tra_infos['np_tras'][:, -4]
 
         # [cls_num, det_num, tra_num], True denotes valid (det label == tra label == cls idx)
+        # 这里是判定检测label和航迹label是否相同
         valid_mask = mask_tras_dets(self.cls_num, det_labels, tra_labels)
         tra_cost_infos = {'np_dets': self.tra_infos['np_tras'][:, :-3], 'np_dets_bottom_corners': self.tra_infos['np_tras_bottom_corners']}
 
         if self.fast:
             # metrics only have giou_3d/giou_bev
+            # 此处函数返回两个结果，分别是gioubev, giou3d
             two_cost, first_cost = giou_3d(self.det_infos, tra_cost_infos)
             first_cost = first_cost[None, :, :].repeat(self.cls_num, axis=0)
             first_cost[self.re_metrics['giou_bev']] = two_cost
@@ -290,7 +308,10 @@ class Tracker:
         # construct the two-stage cost matrix under half-parallel framework is very tricky, 
         # we strongly recommend only use giou_bev as two-stage metric to build the cost matrix
         return {'one_stage': 1 - first_cost, 'two_stage': 1 - two_cost if two_cost is not None else None}
-
+    
+    '''
+    此处执行分配算法，默认使用Hungarian
+    '''
     def matching_cost(self, cost_matrices: dict) -> np.array:
         """
         Solve the matching pair according to the cost matrix
